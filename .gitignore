@@ -1,1 +1,4 @@
 venv/
+*.mp4
+__pycache__/
+Employee_image_DB/
