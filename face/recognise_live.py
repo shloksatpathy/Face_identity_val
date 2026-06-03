@@ -186,53 +186,64 @@ class FaceRecognizer:
 # ------------------------------
 
 if __name__ == "__main__":
+    from tracker import CentroidTracker
 
     recognizer = FaceRecognizer()
-
     cap = cv2.VideoCapture(0)
+    
+    ct = CentroidTracker(max_disappeared=30, max_distance=100)
+    track_identities = {}
 
     while True:
-
         ret, frame = cap.read()
-
         if not ret:
             break
 
         faces = recognizer.app.get(frame)
+        
+        rects = []
+        face_info = {}
 
         for face in faces:
+            bx1, by1, bx2, by2 = map(int, face.bbox)
+            rect = (bx1, by1, bx2, by2)
+            rects.append(rect)
+            
+            name, score = recognizer._identify(face.embedding)
+            face_info[rect] = (name, score)
 
-            bx1, by1, bx2, by2 = map(
-                int,
-                face.bbox
-            )
+        objects = ct.update(rects)
 
-            name, score = recognizer._identify(
-                face.embedding
-            )
+        for object_id, (centroid, rect) in objects.items():
+            raw_name = "Unknown"
+            raw_score = 0.0
+            
+            if rect in face_info:
+                raw_name, raw_score = face_info[rect]
+            
+            if raw_name != "Unknown":
+                if object_id not in track_identities or raw_score > track_identities[object_id][1]:
+                    track_identities[object_id] = (raw_name, raw_score)
 
-            cv2.rectangle(
-                frame,
-                (bx1, by1),
-                (bx2, by2),
-                (0, 255, 0),
-                2
-            )
+            final_name, final_score = track_identities.get(object_id, ("Unknown", raw_score))
 
+            bx1, by1, bx2, by2 = rect
+            
+            color = (0, 255, 0) if final_name != "Unknown" else (0, 0, 255)
+            cv2.rectangle(frame, (bx1, by1), (bx2, by2), color, 2)
+
+            label = f"ID {object_id}: {final_name} {final_score:.2f}"
             cv2.putText(
                 frame,
-                f"{name} {score:.2f}",
+                label,
                 (bx1, by1 - 10),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.8,
-                (0, 255, 0),
+                color,
                 2
             )
 
-        cv2.imshow(
-            "Face Recognition",
-            frame
-        )
+        cv2.imshow("Face Recognition", frame)
 
         if cv2.waitKey(1) & 0xFF == ord("q"):
             break

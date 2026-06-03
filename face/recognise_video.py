@@ -6,10 +6,15 @@ from pathlib import Path
 
 # Import the existing FaceRecognizer class
 from recognise_live import FaceRecognizer
+from tracker import CentroidTracker
 
 def process_video(input_path, output_path=None, display=True):
     print("[INFO] Loading Face Recognizer Model...")
     recognizer = FaceRecognizer()
+    
+    print("[INFO] Initializing Face Tracker...")
+    ct = CentroidTracker(max_disappeared=30, max_distance=100)
+    track_identities = {} # Maps object_id -> (name, max_score)
     
     cap = cv2.VideoCapture(input_path)
     if not cap.isOpened():
@@ -45,19 +50,47 @@ def process_video(input_path, output_path=None, display=True):
         # Use FaceRecognizer app to get faces
         faces = recognizer.app.get(frame)
 
+        rects = []
+        face_info = {}
+
         for face in faces:
             # Get bounding box
             bx1, by1, bx2, by2 = map(int, face.bbox)
+            rect = (bx1, by1, bx2, by2)
+            rects.append(rect)
             
-            # Identify the face
+            # Raw identification from embedding
             name, score = recognizer._identify(face.embedding)
+            face_info[rect] = (name, score)
 
+        # Update tracker with current faces
+        objects = ct.update(rects)
+
+        for object_id, (centroid, rect) in objects.items():
+            raw_name = "Unknown"
+            raw_score = 0.0
+            
+            # If the tracked object corresponds to a face detected in *this* frame
+            if rect in face_info:
+                raw_name, raw_score = face_info[rect]
+            
+            # If the raw recognition is highly confident, lock the identity for this track
+            if raw_name != "Unknown":
+                # Only update if we didn't know who they were, or if the new score is better
+                if object_id not in track_identities or raw_score > track_identities[object_id][1]:
+                    track_identities[object_id] = (raw_name, raw_score)
+
+            # Retrieve the locked identity (if any)
+            final_name, final_score = track_identities.get(object_id, ("Unknown", raw_score))
+
+            bx1, by1, bx2, by2 = rect
+            
             # Draw bounding box
-            color = (0, 255, 0) if name != "Unknown" else (0, 0, 255)
+            color = (0, 255, 0) if final_name != "Unknown" else (0, 0, 255)
             cv2.rectangle(frame, (bx1, by1), (bx2, by2), color, 2)
 
-            # Draw label
-            label = f"{name} {score:.2f}"
+            # Draw label with Track ID
+            label = f"ID {object_id}: {final_name} {final_score:.2f}"
             cv2.putText(
                 frame,
                 label,
