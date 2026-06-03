@@ -18,11 +18,14 @@ THRESHOLD = 0.45
 # ------------------------------
 
 def cosine_similarity(a, b):
-
-    return np.dot(a, b) / (
-        np.linalg.norm(a)
-        * np.linalg.norm(b)
-    )
+    # a: (512,)
+    # b: (N, 512) or (512,)
+    if b.ndim == 1:
+        return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+    else:
+        # matrix multiplication to get similarity with all angles
+        sims = np.dot(b, a) / (np.linalg.norm(b, axis=1) * np.linalg.norm(a))
+        return np.max(sims)
 
 # ------------------------------
 # FACE RECOGNIZER CLASS
@@ -53,7 +56,7 @@ class FaceRecognizer:
             ]
 
         self.app = FaceAnalysis(
-            name="buffalo_s",
+            name="buffalo_l",
             providers=providers
         )
 

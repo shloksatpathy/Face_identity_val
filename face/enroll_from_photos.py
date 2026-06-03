@@ -61,7 +61,7 @@ def _build_app():
     ]
 
     app = FaceAnalysis(
-        name="buffalo_s",
+        name="buffalo_l",
         providers=providers
     )
 
@@ -158,8 +158,8 @@ def enroll_single_photo(app, image_path, name,
         )
     )
 
-    # Save embedding
-    np.save(save_path, best_face.embedding)
+    # Save embedding as a 2D array for multi-pose compatibility
+    np.save(save_path, best_face.embedding.reshape(1, -1))
 
     score = best_face.det_score
     bbox = [int(c) for c in best_face.bbox]

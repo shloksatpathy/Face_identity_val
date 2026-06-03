@@ -40,7 +40,7 @@ def _get_app():
             "CPUExecutionProvider"
         ]
         _app = FaceAnalysis(
-            name="buffalo_s",
+            name="buffalo_l",
             providers=providers
         )
         _app.prepare(
@@ -78,7 +78,7 @@ class EnrollmentSession:
         self._duplicate_checked = False
 
         print(f"\nCollecting {NUM_SAMPLES} samples...")
-        print("Look at camera and slowly move head.")
+        print("Please follow the on-screen instructions to turn your head.")
         print("Press Q to cancel enrollment.\n")
 
     def process_frame(self, frame):
@@ -164,6 +164,19 @@ class EnrollmentSession:
                     f"{len(self.embeddings)}/{NUM_SAMPLES}"
                 )
 
+        # Determine prompt based on progress
+        progress = len(self.embeddings)
+        if progress < NUM_SAMPLES * 0.2:
+            instruction = "Look Straight"
+        elif progress < NUM_SAMPLES * 0.4:
+            instruction = "Turn Head Left"
+        elif progress < NUM_SAMPLES * 0.6:
+            instruction = "Turn Head Right"
+        elif progress < NUM_SAMPLES * 0.8:
+            instruction = "Look Up slightly"
+        else:
+            instruction = "Look Down slightly"
+
         # Draw enrollment HUD
         cv2.putText(
             frame,
@@ -173,6 +186,16 @@ class EnrollmentSession:
             cv2.FONT_HERSHEY_SIMPLEX,
             0.7,
             (0, 255, 0),
+            2
+        )
+        # Draw instruction
+        cv2.putText(
+            frame,
+            f"Action: {instruction}",
+            (10, 60),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.7,
+            (0, 255, 255),
             2
         )
 
@@ -203,10 +226,8 @@ class EnrollmentSession:
             print("[ERROR] No samples collected")
             return False
 
-        mean_embedding = np.mean(
-            np.array(self.embeddings),
-            axis=0
-        )
+        # Save all embeddings as (N, 512) for multi-pose recognition
+        all_embeddings = np.array(self.embeddings)
 
         save_path = os.path.join(
             DATABASE_DIR,
@@ -215,7 +236,7 @@ class EnrollmentSession:
 
         np.save(
             save_path,
-            mean_embedding
+            all_embeddings
         )
 
         print(f"\nSaved profile: {save_path}")

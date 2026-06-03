@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 # Import the existing FaceRecognizer class
-from recognise import FaceRecognizer
+from recognise_live import FaceRecognizer
 
 def process_video(input_path, output_path=None, display=True):
     print("[INFO] Loading Face Recognizer Model...")
